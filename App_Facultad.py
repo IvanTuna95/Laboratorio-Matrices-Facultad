@@ -3,171 +3,141 @@ import numpy as np
 import pandas as pd
 
 # ==========================================
-# LÓGICA DE PROGRAMACIÓN (ÁLGEBRA LINEAL)
+# LÓGICA DE PROGRAMACIÓN EXPERTA
 # ==========================================
 
 def sumar_matrices(A, B):
-    """Suma A + B recorriendo posición por posición."""
     if A.shape != B.shape:
-        return "Error: Las dimensiones deben ser iguales para sumar."
-    
+        return "Error: Dimensiones incompatibles para sumar."
     filas, columnas = A.shape
     resultado = np.zeros((filas, columnas))
-    
-    # Recorrido con ciclos anidados (i = filas, j = columnas)
     for i in range(filas):
         for j in range(columnas):
             resultado[i][j] = A[i][j] + B[i][j]
     return resultado
 
 def multiplicar_matrices(A, B):
-    """Multiplicación matricial usando triple ciclo (i, j, k)."""
     filas_A, cols_A = A.shape
     filas_B, cols_B = B.shape
-    
     if cols_A != filas_B:
-        return f"Error: No se puede multiplicar. Columnas de A ({cols_A}) != Filas de B ({filas_B})."
-    
-    # La matriz resultante es de (filas A x columnas B)
+        return "Error: Columnas de A deben coincidir con Filas de B."
     resultado = np.zeros((filas_A, cols_B))
-    
-    # Lógica de 3 ciclos
-    for i in range(filas_A):          # Recorre filas de A
-        for j in range(cols_B):      # Recorre columnas de B
-            suma_acumulada = 0
-            for k in range(cols_A):  # k es el índice común
-                suma_acumulada += A[i][k] * B[k][j]
-            resultado[i][j] = suma_acumulada
+    for i in range(filas_A):
+        for j in range(cols_B):
+            for k in range(cols_A):
+                resultado[i][j] += A[i][k] * B[k][j]
     return resultado
 
-def multiplicar_por_escalar(A, factor):
-    """Multiplica cada elemento de la matriz por un número real."""
-    filas, columnas = A.shape
-    resultado = np.zeros((filas, columnas))
+def inversa_gauss_jordan(M):
+    """Cálculo de inversa para matrices de hasta 5x5 mediante Gauss-Jordan."""
+    if M.shape[0] != M.shape[1]:
+        return "Error: La matriz debe ser cuadrada."
     
-    for i in range(filas):
-        for j in range(columnas):
-            resultado[i][j] = A[i][j] * factor
-    return resultado
+    n = M.shape[0]
+    # Creamos una copia para no modificar la original y la matriz identidad
+    A = M.copy().astype(float)
+    inv = np.identity(n)
 
-def inversa_2x2(M):
-    """Cálculo manual de la inversa para matrices de 2x2."""
-    if M.shape != (2, 2):
-        return "Error: Esta lógica simplificada solo aplica a matrices 2x2."
-    
-    # Extraer valores individuales
-    a, b = M[0][0], M[0][1]
-    c, d = M[1][0], M[1][1]
-    
-    # Calcular determinante
-    determinante = (a * d) - (b * c)
-    
-    if determinante == 0:
-        return "Error: El determinante es 0. La matriz no tiene inversa."
-    
-    # Aplicar fórmula de la adjunta para 2x2
-    resultado = np.zeros((2, 2))
-    resultado[0][0] = d / determinante
-    resultado[0][1] = -b / determinante
-    resultado[1][0] = -c / determinante
-    resultado[1][1] = a / determinante
-    return resultado
+    # Proceso de eliminación
+    for i in range(n):
+        # 1. Pivoteo: buscar el valor máximo en la columna para estabilidad
+        pivote = A[i][i]
+        if abs(pivote) < 1e-10:
+            return "Error: La matriz es singular (no tiene inversa)."
+
+        # 2. Hacer que el pivote sea 1 dividiendo toda la fila
+        A[i] = A[i] / pivote
+        inv[i] = inv[i] / pivote
+
+        # 3. Eliminar los otros elementos de la columna
+        for j in range(n):
+            if i != j:
+                factor = A[j][i]
+                A[j] -= factor * A[i]
+                inv[j] -= factor * inv[i]
+                
+    return inv
 
 # ==========================================
 # INTERFAZ DE USUARIO (STREAMLIT)
 # ==========================================
 
-st.set_page_config(page_title="Laboratorio de Matrices", layout="wide")
-st.title("🧪 Laboratorio de Matrices Profecional")
+st.set_page_config(page_title="Laboratorio de Matrices Pro", layout="wide")
+st.title("🧪 Laboratorio de Matrices (Hasta 5x5)")
 
-# Inicializar el espacio de las 4 matrices
 if 'matrices' not in st.session_state:
     st.session_state.matrices = {'A': None, 'B': None, 'C': None, 'D': None}
 
-# --- PANEL LATERAL (CARGA Y CAPTURA) ---
 with st.sidebar:
     st.header("1. Entrada de Datos")
-    metodo = st.radio("Método de entrada:", ["Manual (Editor)", "Subir Archivo (.txt)"])
+    metodo = st.radio("Método:", ["Manual", "Archivo .txt"])
     target = st.selectbox("Asignar a:", ['A', 'B', 'C', 'D'])
 
-    if metodo == "Manual (Editor)":
-        f = st.number_input("Filas", 1, 10, 2)
-        c = st.number_input("Columnas", 1, 10, 2)
-        df_input = st.data_editor(pd.DataFrame(np.zeros((f, c))), key=f"editor_{target}")
-        if st.button("Guardar en " + target):
+    if metodo == "Manual":
+        f = st.number_input("Filas", 1, 5, 2)
+        c = st.number_input("Columnas", 1, 5, 2)
+        df_input = st.data_editor(pd.DataFrame(np.zeros((f, c))), key=f"ed_{target}")
+        if st.button(f"Guardar en {target}"):
             st.session_state.matrices[target] = df_input.to_numpy()
-            st.success(f"Matriz {target} lista.")
+            st.success("Guardado.")
     else:
-        archivo = st.file_uploader("Sube tu archivo TXT", type="txt")
-        if archivo and st.button("Procesar Archivo"):
+        archivo = st.file_uploader("Sube TXT", type="txt")
+        if archivo and st.button("Cargar"):
             try:
-                matriz_cargada = np.loadtxt(archivo)
-                st.session_state.matrices[target] = matriz_cargada
-                st.success(f"Matriz {target} cargada desde archivo.")
+                st.session_state.matrices[target] = np.loadtxt(archivo)
+                st.success("Cargado.")
             except:
-                st.error("Formato de archivo inválido. Usa espacios o tabs entre números.")
+                st.error("Archivo inválido.")
 
-# --- PANEL CENTRAL (OPERACIONES) ---
-st.header("2. Operaciones con Matrices")
+# --- OPERACIONES ---
+st.header("2. Operaciones")
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    operacion = st.selectbox("Elegir Operación:", 
-                            ["Suma", "Multiplicación Matricial", "Escalar (Factor)", "Inversa (2x2)"])
+    op = st.selectbox("Operación:", ["Suma", "Multiplicación", "Escalar", "Inversa (Gauss-Jordan)"])
+    m1_name = st.selectbox("Matriz Principal:", ['A', 'B', 'C', 'D'], key="m1")
     
-    m_origen1 = st.selectbox("Matriz Principal:", ['A', 'B', 'C', 'D'], key="mo1")
-    
-    # Mostrar opciones adicionales según la operación
-    m_origen2 = None
+    m2_name = None
     factor = 1.0
-    if operacion in ["Suma", "Multiplicación Matricial"]:
-        m_origen2 = st.selectbox("Matriz Secundaria:", ['A', 'B', 'C', 'D'], key="mo2")
-    elif operacion == "Escalar (Factor)":
-        factor = st.number_input("Introduce el factor real:", value=1.0)
+    if op in ["Suma", "Multiplicación"]:
+        m2_name = st.selectbox("Matriz Secundaria:", ['A', 'B', 'C', 'D'], key="m2")
+    elif op == "Escalar":
+        factor = st.number_input("Factor:", value=1.0)
     
-    m_destino = st.selectbox("Guardar resultado en:", ['A', 'B', 'C', 'D'], key="mdest")
+    dest = st.selectbox("Destino:", ['A', 'B', 'C', 'D'], key="dest")
 
-    if st.button("🔥 Ejecutar Cálculo"):
-        A = st.session_state.matrices[m_origen1]
-        
+    if st.button("Calcular"):
+        A = st.session_state.matrices[m1_name]
         if A is None:
-            st.error(f"La matriz {m_origen1} está vacía.")
+            st.error("Matriz principal vacía.")
         else:
-            res = None
-            if operacion == "Suma":
-                B = st.session_state.matrices[m_origen2]
-                res = sumar_matrices(A, B) if B is not None else "Error: Segunda matriz vacía."
-            
-            elif operacion == "Multiplicación Matricial":
-                B = st.session_state.matrices[m_origen2]
-                res = multiplicar_matrices(A, B) if B is not None else "Error: Segunda matriz vacía."
-            
-            elif operacion == "Escalar (Factor)":
-                res = multiplicar_por_escalar(A, factor)
-            
-            elif operacion == "Inversa (2x2)":
-                res = inversa_2x2(A)
+            if op == "Suma":
+                B = st.session_state.matrices[m2_name]
+                res = sumar_matrices(A, B) if B is not None else "Matriz B vacía."
+            elif op == "Multiplicación":
+                B = st.session_state.matrices[m2_name]
+                res = multiplicar_matrices(A, B) if B is not None else "Matriz B vacía."
+            elif op == "Escalar":
+                res = A * factor
+            elif op == "Inversa (Gauss-Jordan)":
+                res = inversa_gauss_jordan(A)
 
-            # Validar si el resultado es un mensaje de error o una matriz
             if isinstance(res, str):
                 st.error(res)
             else:
-                st.session_state.matrices[m_destino] = res
-                st.success(f"Operación terminada. Resultado guardado en {m_destino}")
+                st.session_state.matrices[dest] = res
+                st.success(f"Resultado en {dest}")
 
-# --- PANEL INFERIOR (ESTADO ACTUAL) ---
+# --- VISUALIZACIÓN ---
 st.divider()
-st.header("3. Espacio de Trabajo (Matrices Activas)")
-vista_cols = st.columns(4)
-
-for i, letra in enumerate(['A', 'B', 'C', 'D']):
-    with vista_cols[i]:
-        st.subheader(f"Matriz {letra}")
-        m = st.session_state.matrices[letra]
-        if m is not None:
-            st.dataframe(m)
-            # Opción para exportar/guardar en archivo
-            txt_data = pd.DataFrame(m).to_csv(index=False, header=False, sep='\t')
-            st.download_button(f"📥 Bajar {letra}.txt", txt_data, f"Matriz_{letra}.txt")
+cols = st.columns(4)
+for i, L in enumerate(['A', 'B', 'C', 'D']):
+    with cols[i]:
+        st.subheader(f"Matriz {L}")
+        if st.session_state.matrices[L] is not None:
+            st.dataframe(st.session_state.matrices[L])
+            csv = pd.DataFrame(st.session_state.matrices[L]).to_csv(index=False, header=False, sep='\t')
+            st.download_button(f"Descargar {L}", csv, f"{L}.txt")
         else:
-            st.caption("Sin datos cargados.")
+            st.caption("Vacía")
+            
